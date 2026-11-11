@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Birthday! 祝你生日快樂 🎂</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Sans+TC:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- QRCodeJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            800: '#1b2a4a',
+                            900: '#0f172a',
+                            950: '#090d16'
+                        },
+                        skyblue: {
+                            100: '#e0f2fe',
+                            300: '#7dd3fc',
+                            500: '#0ea5e9',
+                            600: '#0284c7'
+                        }
+                    },
+                    fontFamily: {
+                        cursive: ['"Dancing Script"', 'cursive'],
+                        sans: ['"Noto Sans TC"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* 飄浮粒子動畫背景 */
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2b48 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+            overflow-x: hidden;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        /* 玻璃擬物風格 Glassmorphism */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 10, 30, 0.37);
+        }
+
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 蠟燭火苗動畫 */
+        .flame {
+            width: 14px;
+            height: 24px;
+            background: linear-gradient(to top, #ff9d00, #ffeb3b, #ffffff);
+            border-radius: 50% 50% 35% 35%;
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 15px #ff9d00, 0 0 30px #ffeb3b;
+            animation: flicker 0.6s infinite alternate ease-in-out;
+            cursor: pointer;
+        }
+
+        .flame.off {
+            display: none;
+        }
+
+        .smoke {
+            width: 8px;
+            height: 8px;
+            background: rgba(200, 220, 255, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: smokeRise 1.5s forwards ease-out;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        @keyframes flicker {
+            0% { transform: translateX(-50%) scale(1) rotate(-2deg); }
+            100% { transform: translateX(-50%) scale(1.15) rotate(2deg); }
+        }
+
+        @keyframes smokeRise {
+            0% { opacity: 0.8; transform: translateX(-50%) translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(3); }
+        }
+
+        /* 星空背景 canvas */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* 禮物盒開箱動畫 */
+        .gift-box {
+            transition: transform 0.3s ease;
+        }
+        .gift-box:hover {
+            transform: scale(1.05);
+        }
+
+        .lid {
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-origin: top right;
+        }
+
+        .gift-box.open .lid {
+            transform: rotate(-110deg) translateY(-20px);
+        }
+
+        /* 照片拍立得風格 */
+        .polaroid {
+            background: white;
+            padding: 10px 10px 25px 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        .polaroid:hover {
+            transform: scale(1.03) rotate(0deg) !important;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen text-slate-100 pb-16">
+
+    <!-- 動態背景畫布 -->
+    <canvas idstarfield id="starfield"></canvas>
+
+    <!-- 頂部音樂與分享控制列 -->
+    <nav class="relative z-10 p-4 flex justify-between items-center max-w-5xl mx-auto">
+        <div class="flex items-center gap-2">
+            <span class="text-sky-400 text-2xl font-bold"><i class="fa-solid fa-gift"></i></span>
+            <span class="font-bold tracking-wider text-sm sm:text-base text-sky-200">SPECIAL DAY</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- 音樂按鈕 -->
+            <button id="musicBtn" onclick="toggleMusic()" class="glass-pill px-4 py-2 rounded-full flex items-center gap-2 text-xs sm:text-sm text-sky-200 hover:bg-sky-500/20 transition cursor-pointer">
+                <i id="musicIcon" class="fa-solid fa-music"></i>
+                <span id="musicText">播放音樂</span>
+            </button>
+            <!-- QR碼對話框觸發 -->
+            <button onclick="openQrModal()" class="glass-pill p-2 px-3 rounded-full text-xs sm:text-sm text-sky-200 hover:bg-sky-500/20 transition cursor-pointer" title="產生 QR Code">
+                <i class="fa-solid fa-qrcode"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 主要內容區域 -->
+    <main class="relative z-10 max-w-4xl mx-auto px-4 mt-4 space-y-16">
+
+        <!-- 1. Hero 標頭與主視覺 -->
+        <section class="text-center space-y-6 pt-6">
+            <div class="inline-block px-4 py-1.5 rounded-full glass-pill text-sky-300 text-xs sm:text-sm tracking-widest uppercase animate-pulse">
+                ✨歡迎入住旅居文旅板橋館✨
+            </div>
+            
+            <h1 class="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-blue-300 to-indigo-200 drop-shadow">
+                那帥，生日快樂！
+            </h1>
+            
+            <p class="text-base sm:text-lg text-sky-100/80 max-w-xl mx-auto font-light leading-relaxed">
+                在這個特別的日子裡，願所有美好的事物都與你環環相扣。<br>
+                點擊下方蛋糕上的火焰，許下你的生日願望吧！
+            </p>
+        </section>
+
+        <!-- 2. 互動生日蛋糕 -->
+        <section class="flex flex-col items-center justify-center space-y-6">
+            <div class="glass-card p-8 rounded-3xl w-full max-w-md flex flex-col items-center shadow-2xl relative overflow-hidden">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-sky-500/20 rounded-full blur-2xl"></div>
+                <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-600/20 rounded-full blur-2xl"></div>
+
+                <!-- 提示文字 -->
+                <div id="cakeStatus" class="text-xs sm:text-sm text-sky-300 bg-sky-950/60 px-4 py-1.5 rounded-full border border-sky-500/30 mb-6">
+                    💡 點擊火苗即可吹熄蠟燭喔！
+                </div>
+
+                <!-- 蛋糕主體 (CSS繪製) -->
+                <div class="relative w-56 h-48 flex flex-col items-center justify-end my-4">
+                    
+                    <!-- 蠟燭層 -->
+                    <div class="flex justify-center gap-6 mb-1 relative z-20">
+                        <!-- 蠟燭 1 -->
+                        <div class="relative flex flex-col items-center cursor-pointer" onclick="extinguishCandle(1)">
+                            <div id="flame1" class="flame"></div>
+                            <div id="smoke1"></div>
+                            <div class="w-3 h-10 bg-gradient-to-b from-sky-200 to-blue-400 rounded-t-sm shadow-inner"></div>
+                        </div>
+                        <!-- 蠟燭 2 -->
+                        <div class="relative flex flex-col items-center cursor-pointer" onclick="extinguishCandle(2)">
+                            <div id="flame2" class="flame"></div>
+                            <div id="smoke2"></div>
+                            <div class="w-3 h-12 bg-gradient-to-b from-indigo-200 to-sky-400 rounded-t-sm shadow-inner"></div>
+                        </div>
+                        <!-- 蠟燭 3 -->
+                        <div class="relative flex flex-col items-center cursor-pointer" onclick="extinguishCandle(3)">
+                            <div id="flame3" class="flame"></div>
+                            <div id="smoke3"></div>
+                            <div class="w-3 h-10 bg-gradient-to-b from-sky-200 to-blue-400 rounded-t-sm shadow-inner"></div>
+                        </div>
+                    </div>
+
+                    <!-- 蛋糕上層 (頂層奶油) -->
+                    <div class="w-36 h-12 bg-gradient-to-r from-sky-100 to-blue-100 rounded-t-2xl shadow-md relative z-10 border-b-4 border-sky-200 flex justify-around items-center px-2">
+                        <span class="w-3 h-3 bg-blue-400 rounded-full inline-block"></span>
+                        <span class="w-3 h-3 bg-indigo-400 rounded-full inline-block"></span>
+                        <span class="w-3 h-3 bg-sky-400 rounded-full inline-block"></span>
+                    </div>
+
+                    <!-- 蛋糕中層 (主體) -->
+                    <div class="w-48 h-16 bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-700 rounded-t-lg shadow-lg relative z-0 flex items-center justify-center border-b-4 border-blue-800">
+                        <div class="text-white/40 text-xs tracking-widest uppercase font-bold">✨ 25 ✨</div>
+                    </div>
+
+                    <!-- 蛋糕底盤 -->
+                    <div class="w-56 h-4 bg-slate-300 rounded-full shadow-xl border-t border-white"></div>
+                </div>
+
+                <!-- 重設蠟燭按鈕 -->
+                <button onclick="resetCandles()" class="mt-4 text-xs text-sky-300 hover:text-white underline underline-offset-4 cursor-pointer">
+                    重新點燃蠟燭 🕯️
+                </button>
+            </div>
+        </section>
+
+        <!-- 3. 互動禮物盒開箱驚喜 -->
+        <section class="text-center space-y-6 pt-4">
+            <h2 class="text-2xl sm:text-3xl font-bold text-sky-200">開啟你的生日禮物 🎁</h2>
+            <p class="text-sm text-sky-100/70">點擊禮物盒拆開特別準備的驚喜祝福！</p>
+
+            <div class="flex justify-center items-center py-6">
+                <!-- 禮物盒組件 -->
+                <div id="giftBox" onclick="openGift()" class="gift-box relative w-40 h-40 cursor-pointer">
+                    <!-- 禮物盒蓋子 -->
+                    <div class="lid absolute -top-4 -left-2 w-44 h-10 bg-gradient-to-r from-sky-400 to-blue-500 rounded-md shadow-lg z-20 flex justify-center items-center">
+                        <!-- 緞帶結 -->
+                        <div class="w-8 h-8 bg-amber-300 rounded-full absolute -top-3 shadow"></div>
+                    </div>
+                    <!-- 禮物盒盒身 -->
+                    <div class="w-40 h-36 bg-gradient-to-r from-sky-500 to-blue-600 rounded-b-lg shadow-2xl relative z-10 overflow-hidden flex items-center justify-center">
+                        <!-- 十字緞帶 -->
+                        <div class="w-8 h-full bg-amber-300 absolute"></div>
+                        <div class="w-full h-8 bg-amber-300 absolute"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 禮物解鎖訊息彈窗 (初始隱藏) -->
+            <div id="giftMessage" class="hidden glass-card p-6 rounded-2xl max-w-lg mx-auto border border-sky-400/40 transform transition-all duration-500 scale-95 opacity-0">
+                <div class="text-4xl mb-3">🎉 🎊 🎉</div>
+                <h3 class="text-xl font-bold text-sky-200 mb-2">通關密語</h3>
+                <p class="text-slate-200 text-sm leading-relaxed">
+                    「親一下女朋友才可以進房喔。」 
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 頁尾 footer -->
+    <footer class="relative z-10 text-center text-xs text-sky-200/50 mt-20">
+        Made with ❤️ for a Special Person | Happy Birthday
+    </footer>
+
+    <!-- QR Code 彈窗 Modal -->
+    <div id="qrModal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center hidden p-4 backdrop-blur-sm">
+        <div class="glass-card bg-slate-900/90 p-6 sm:p-8 rounded-3xl max-w-sm w-full text-center space-y-4 relative border border-sky-500/30">
+            <button onclick="closeQrModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h3 class="text-lg font-bold text-sky-200">掃描 QR Code 開啟網站</h3>
+            <p class="text-xs text-slate-300">你可以將這個 QR Code 保存並印出或發送給對方：</p>
+            
+            <!-- QR Code 容器 -->
+            <div class="flex justify-center p-3 bg-white rounded-2xl shadow-inner inline-block mx-auto" id="qrcode"></div>
+            
+            <p class="text-xs text-sky-300/70 break-all" id="currentUrlText"></p>
+            <button onclick="copyUrl()" class="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold transition">
+                複製網站連結 📋
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript 腳本區塊 -->
+    <script>
+        /* ----------------------------------------------------
+         * 1. 藍色動態星空與飄浮粒子 Canvas
+         * ---------------------------------------------------- */
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initStars();
+        }
+
+        function initStars() {
+            stars = [];
+            const count = Math.floor((canvas.width * canvas.height) / 7000);
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 1.5 + 0.5,
+                    color: ['#ffffff', '#7dd3fc', '#38bdf8', '#bae6fd'][Math.floor(Math.random() * 4)],
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.02 + 0.005
+                });
+            }
+        }
+
+        function drawStars() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                ctx.save();
+                ctx.globalAlpha = Math.abs(Math.sin(star.alpha));
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = star.color;
+                ctx.fill();
+                ctx.restore();
+
+                star.alpha += star.speed;
+            });
+            requestAnimationFrame(drawStars);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        drawStars();
+
+        /* ----------------------------------------------------
+         * 2. 生日蛋糕吹蠟燭互動 logic
+         * ---------------------------------------------------- */
+        let litCandles = 3;
+
+        function extinguishCandle(index) {
+            const flame = document.getElementById(`flame${index}`);
+            const smoke = document.getElementById(`smoke${index}`);
+            
+            if (flame && !flame.classList.contains('off')) {
+                flame.classList.add('off');
+                litCandles--;
+
+                // 產生煙霧效果
+                if (smoke) {
+                    smoke.className = 'smoke';
+                    setTimeout(() => { smoke.className = ''; }, 1500);
+                }
+
+                // 當所有蠟燭都吹熄時觸發彩帶特效
+                if (litCandles === 0) {
+                    document.getElementById('cakeStatus').innerText = '🎉 願望吹熄囉！願你所有願望都實現！';
+                    triggerConfetti();
+                }
+            }
+        }
+
+        function resetCandles() {
+            litCandles = 3;
+            for (let i = 1; i <= 3; i++) {
+                const flame = document.getElementById(`flame${i}`);
+                if (flame) flame.classList.remove('off');
+            }
+            document.getElementById('cakeStatus').innerText = '💡 提示：點擊火苗即可吹熄蠟燭喔！';
+        }
+
+        /* ----------------------------------------------------
+         * 3. 禮物盒點擊開箱與 Confetti 彩帶特效
+         * ---------------------------------------------------- */
+        let giftOpened = false;
+
+        function openGift() {
+            const giftBox = document.getElementById('giftBox');
+            const giftMsg = document.getElementById('giftMessage');
+
+            if (!giftOpened) {
+                giftBox.classList.add('open');
+                giftOpened = true;
+
+                // 放煙火彩帶
+                triggerConfetti();
+
+                // 顯示驚喜訊息
+                setTimeout(() => {
+                    giftMsg.classList.remove('hidden');
+                    setTimeout(() => {
+                        giftMsg.classList.remove('scale-95', 'opacity-0');
+                        giftMsg.classList.add('scale-100', 'opacity-100');
+                    }, 50);
+                }, 400);
+            }
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                // 藍白金配色彩帶
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#0ea5e9', '#7dd3fc', '#ffffff', '#fbbf24']
+                });
+            }
+        }
+
+        /* ----------------------------------------------------
+         * 4. Web Audio API 自動播放生日旋律 (不需要外部音效檔)
+         * ---------------------------------------------------- */
+        let audioCtx = null;
+        let isPlaying = false;
+        let timerId = null;
+
+        // 生日快樂歌簡譜與節奏 (C大調)
+        const notes = [
+            { note: 261.63, duration: 0.4 }, // G4 (C4=261.63) -> 簡化為: G4 G4 A4 G4 C5 B4
+            { note: 392.00, duration: 0.3 }, { note: 392.00, duration: 0.3 },
+            { note: 440.00, duration: 0.6 }, { note: 392.00, duration: 0.6 },
+            { note: 523.25, duration: 0.6 }, { note: 493.88, duration: 1.0 },
+            
+            { note: 392.00, duration: 0.3 }, { note: 392.00, duration: 0.3 },
+            { note: 440.00, duration: 0.6 }, { note: 392.00, duration: 0.6 },
+            { note: 587.33, duration: 0.6 }, { note: 523.25, duration: 1.0 },
+
+            { note: 392.00, duration: 0.3 }, { note: 392.00, duration: 0.3 },
+            { note: 783.99, duration: 0.6 }, { note: 659.25, duration: 0.6 },
+            { note: 523.25, duration: 0.6 }, { note: 493.88, duration: 0.6 }, { note: 440.00, duration: 0.6 },
+
+            { note: 698.46, duration: 0.3 }, { note: 698.46, duration: 0.3 },
+            { note: 659.25, duration: 0.6 }, { note: 523.25, duration: 0.6 },
+            { note: 587.33, duration: 0.6 }, { note: 523.25, duration: 1.2 }
+        ];
+
+        function playNote(freq, duration) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function startMelody() {
+            let index = 0;
+            function step() {
+                if (!isPlaying) return;
+                const current = notes[index];
+                playNote(current.note, current.duration);
+                index = (index + 1) % notes.length;
+                timerId = setTimeout(step, current.duration * 700);
+            }
+            step();
+        }
+
+        function toggleMusic() {
+            const musicBtn = document.getElementById('musicBtn');
+            const musicIcon = document.getElementById('musicIcon');
+            const musicText = document.getElementById('musicText');
+
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (!isPlaying) {
+                isPlaying = true;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                startMelody();
+                musicIcon.className = "fa-solid fa-pause animate-spin";
+                musicText.innerText = "暫停音樂";
+                musicBtn.classList.add("bg-sky-500/40");
+            } else {
+                isPlaying = false;
+                clearTimeout(timerId);
+                musicIcon.className = "fa-solid fa-music";
+                musicText.innerText = "播放音樂";
+                musicBtn.classList.remove("bg-sky-500/40");
+            }
+        }
+
+        /* ----------------------------------------------------
+         * 5. QR Code 彈窗與網址複製邏輯
+         * ---------------------------------------------------- */
+        let qrGenerated = false;
+
+        function openQrModal() {
+            const modal = document.getElementById('qrModal');
+            const currentUrl = window.location.href;
+            document.getElementById('currentUrlText').innerText = currentUrl;
+
+            modal.classList.remove('hidden');
+
+            if (!qrGenerated && typeof QRCode !== 'undefined') {
+                new QRCode(document.getElementById("qrcode"), {
+                    text: currentUrl,
+                    width: 160,
+                    height: 160,
+                    colorDark: "#0f172a",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                qrGenerated = true;
+            }
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        function copyUrl() {
+            const url = window.location.href;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert("網址已成功複製！快分享給壽星吧！");
+                }).catch(() => {
+                    fallbackCopyUrl(url);
+                });
+            } else {
+                fallbackCopyUrl(url);
+            }
+        }
+
+        function fallbackCopyUrl(text) {
+            const dummy = document.createElement("input");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            alert("網址已成功複製！快分享給壽星吧！");
+        }
+    </script>
+</body>
+</html>
